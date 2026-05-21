@@ -1,24 +1,18 @@
 use ark_bn254::{Bn254, Fr};
-use ark_ff::{Field, One, PrimeField, Zero};
+use ark_ff::{Field, PrimeField, Zero};
 use ark_groth16::Groth16;
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
+use ark_r1cs_std::fields::fp::FpVar;
 use ark_r1cs_std::prelude::*;
 use ark_snark::SNARK;
 use sha2::{Digest, Sha256};
 use std::sync::OnceLock;
 use std::time::Instant;
-use ark_r1cs_std::fields::fp::FpVar;
 
-// =============================================================================
-// Domain separation
-// =============================================================================
 const DOMAIN_SEP: &[u8] = b"DataIntegrityGroth16Proof2026::v1.0::";
 const COMMITMENT_DOMAIN: &[u8] = b"Commitment";
 const ATTRIBUTE_HASH_DOMAIN: &[u8] = b"AttributeHash";
 
-// =============================================================================
-// Poseidon parameters (native — same as Parts 1-2)
-// =============================================================================
 const FULL_ROUNDS: usize = 8;
 const PARTIAL_ROUNDS: usize = 56;
 const TOTAL_ROUNDS: usize = FULL_ROUNDS + PARTIAL_ROUNDS;
@@ -37,7 +31,6 @@ fn get_params() -> &'static PoseidonParams {
         let mut hasher = Sha256::new();
         hasher.update(b"PoseidonBN254Constants");
         let mut seed = hasher.finalize();
-
         for _ in 0..TOTAL_ROUNDS {
             let mut round = Vec::with_capacity(STATE_WIDTH);
             for _ in 0..STATE_WIDTH {
@@ -48,25 +41,16 @@ fn get_params() -> &'static PoseidonParams {
             }
             constants.push(round);
         }
-
         let mds = vec![
             vec![Fr::from(2u64), Fr::from(3u64), Fr::from(1u64)],
             vec![Fr::from(1u64), Fr::from(2u64), Fr::from(3u64)],
             vec![Fr::from(3u64), Fr::from(1u64), Fr::from(2u64)],
         ];
-
         PoseidonParams { constants, mds }
     })
 }
 
-// =============================================================================
-// Native Poseidon (Parts 1-2)
-// =============================================================================
-fn sbox(x: &Fr) -> Fr {
-    let x2 = x.square();
-    let x4 = x2.square();
-    *x * x4
-}
+fn sbox(x: &Fr) -> Fr { let x2 = x.square(); let x4 = x2.square(); *x * x4 }
 
 fn full_round(state: &mut [Fr; STATE_WIDTH], round_idx: usize, params: &PoseidonParams) {
     let rc = &params.constants[round_idx];
@@ -101,9 +85,7 @@ fn poseidon_sponge_hash(inputs: &[Fr]) -> Fr {
     let mut state = [Fr::zero(); STATE_WIDTH];
     let mut i = 0;
     while i < inputs.len() {
-        for j in 0..RATE {
-            if i < inputs.len() { state[j] += inputs[i]; i += 1; }
-        }
+        for j in 0..RATE { if i < inputs.len() { state[j] += inputs[i]; i += 1; } }
         poseidon_permutation(&mut state);
     }
     state[0]
@@ -141,69 +123,35 @@ fn random_fr() -> Fr {
     Fr::from_le_bytes_mod_order(&bytes)
 }
 
-// =============================================================================
-// PART 3: Circuit S-box (x^5) in R1CS
-// =============================================================================
 fn sbox_circuit(x: &FpVar<Fr>) -> Result<FpVar<Fr>, SynthesisError> {
-    let x2 = x.square()?;
-    let x4 = x2.square()?;
-    Ok(&x4 * x) // x^4 * x = x^5
+    let x2 = x.square()?; let x4 = x2.square()?; Ok(&x4 * x)
 }
 
-// =============================================================================
-// PART 3: Circuit — Full Round
-// =============================================================================
-fn full_round_circuit(
-    state: &mut [FpVar<Fr>; STATE_WIDTH],
-    round_idx: usize,
-    params: &PoseidonParams,
-) -> Result<(), SynthesisError> {
+fn full_round_circuit(state: &mut [FpVar<Fr>; STATE_WIDTH], round_idx: usize, params: &PoseidonParams) -> Result<(), SynthesisError> {
     let rc = &params.constants[round_idx];
-    for i in 0..STATE_WIDTH {
-        state[i] = &state[i] + FpVar::Constant(rc[i]);
-    }
-    for i in 0..STATE_WIDTH {
-        state[i] = sbox_circuit(&state[i])?;
-    }
+    for i in 0..STATE_WIDTH { state[i] = &state[i] + FpVar::Constant(rc[i]); }
+    for i in 0..STATE_WIDTH { state[i] = sbox_circuit(&state[i])?; }
     let old = state.clone();
     for i in 0..STATE_WIDTH {
         state[i] = FpVar::zero();
-        for j in 0..STATE_WIDTH {
-            state[i] = &state[i] + FpVar::Constant(params.mds[i][j]) * &old[j];
-        }
+        for j in 0..STATE_WIDTH { state[i] = &state[i] + FpVar::Constant(params.mds[i][j]) * &old[j]; }
     }
     Ok(())
 }
 
-// =============================================================================
-// PART 3: Circuit — Partial Round
-// =============================================================================
-fn partial_round_circuit(
-    state: &mut [FpVar<Fr>; STATE_WIDTH],
-    round_idx: usize,
-    params: &PoseidonParams,
-) -> Result<(), SynthesisError> {
+fn partial_round_circuit(state: &mut [FpVar<Fr>; STATE_WIDTH], round_idx: usize, params: &PoseidonParams) -> Result<(), SynthesisError> {
     let rc = &params.constants[round_idx];
-    for i in 0..STATE_WIDTH {
-        state[i] = &state[i] + FpVar::Constant(rc[i]);
-    }
+    for i in 0..STATE_WIDTH { state[i] = &state[i] + FpVar::Constant(rc[i]); }
     state[0] = sbox_circuit(&state[0])?;
     let old = state.clone();
     for i in 0..STATE_WIDTH {
         state[i] = FpVar::zero();
-        for j in 0..STATE_WIDTH {
-            state[i] = &state[i] + FpVar::Constant(params.mds[i][j]) * &old[j];
-        }
+        for j in 0..STATE_WIDTH { state[i] = &state[i] + FpVar::Constant(params.mds[i][j]) * &old[j]; }
     }
     Ok(())
 }
 
-// =============================================================================
-// PART 3: Circuit — Poseidon Permutation
-// =============================================================================
-fn poseidon_permutation_circuit(
-    state: &mut [FpVar<Fr>; STATE_WIDTH],
-) -> Result<(), SynthesisError> {
+fn poseidon_permutation_circuit(state: &mut [FpVar<Fr>; STATE_WIDTH]) -> Result<(), SynthesisError> {
     let params = get_params();
     for i in 0..FULL_ROUNDS / 2 { full_round_circuit(state, i, params)?; }
     for i in 0..PARTIAL_ROUNDS { partial_round_circuit(state, FULL_ROUNDS / 2 + i, params)?; }
@@ -211,159 +159,205 @@ fn poseidon_permutation_circuit(
     Ok(())
 }
 
-// =============================================================================
-// PART 3: Circuit — Sponge Hash
-// =============================================================================
-fn poseidon_sponge_hash_circuit(
-    inputs: &[FpVar<Fr>],
-) -> Result<FpVar<Fr>, SynthesisError> {
+fn poseidon_sponge_hash_circuit(inputs: &[FpVar<Fr>]) -> Result<FpVar<Fr>, SynthesisError> {
     let mut state = [FpVar::zero(), FpVar::zero(), FpVar::zero()];
     let mut i = 0;
     while i < inputs.len() {
-        for j in 0..RATE {
-            if i < inputs.len() {
-                state[j] = &state[j] + &inputs[i];
-                i += 1;
-            }
-        }
+        for j in 0..RATE { if i < inputs.len() { state[j] = &state[j] + &inputs[i]; i += 1; } }
         poseidon_permutation_circuit(&mut state)?;
     }
     Ok(state[0].clone())
 }
 
-// =============================================================================
-// PART 3: The Circuit Definition
-// =============================================================================
-struct DataIntegrityCircuit {
-    // Private witnesses: 16 attributes + blinding
-    pub attributes: Vec<Option<Fr>>,
+struct SelectiveDisclosureCircuit {
+    pub attributes: [Option<Fr>; 16],
+    pub mask: [bool; 16],
     pub blinding: Option<Fr>,
-    
-    // Public input: the commitment we're proving knowledge of
     pub expected_commitment: Option<Fr>,
-    
-    // Domain element (computed from domain tag)
+    pub age_threshold: Option<Fr>,
+    pub age_index: usize,
     pub domain_element: Fr,
 }
 
-impl ConstraintSynthesizer<Fr> for DataIntegrityCircuit {
+impl ConstraintSynthesizer<Fr> for SelectiveDisclosureCircuit {
     fn generate_constraints(self, cs: ConstraintSystemRef<Fr>) -> Result<(), SynthesisError> {
-        // 1. Allocate domain element as constant
         let domain_var = FpVar::Constant(self.domain_element);
 
-        // 2. Allocate private witnesses (16 attributes)
-        let mut input_vars: Vec<FpVar<Fr>> = vec![domain_var];
-        for attr in self.attributes {
-            input_vars.push(FpVar::new_witness(
+        // Public inputs allocation alignment
+        let mut revealed_vars = Vec::with_capacity(16);
+        for i in 0..16 {
+            let val = if self.mask[i] {
+                self.attributes[i]
+            } else {
+                Some(Fr::zero())
+            };
+            revealed_vars.push(FpVar::new_input(
                 cs.clone(),
-                || attr.ok_or(SynthesisError::AssignmentMissing),
+                || val.ok_or(SynthesisError::AssignmentMissing),
             )?);
         }
 
-        // 3. Allocate blinding factor
-        let blinding_var = FpVar::new_witness(
-            cs.clone(),
-            || self.blinding.ok_or(SynthesisError::AssignmentMissing),
-        )?;
-        input_vars.push(blinding_var);
-
-        // 4. Allocate public input: expected commitment
         let expected_commitment_var = FpVar::new_input(
             cs.clone(),
             || self.expected_commitment.ok_or(SynthesisError::AssignmentMissing),
         )?;
 
-        // 5. Compute Poseidon hash INSIDE the circuit
-        let computed_commitment = poseidon_sponge_hash_circuit(&input_vars)?;
+        let age_threshold_var = FpVar::new_input(
+            cs.clone(),
+            || self.age_threshold.ok_or(SynthesisError::AssignmentMissing),
+        )?;
 
-        // 6. Enforce: computed == expected
-        computed_commitment.enforce_equal(&expected_commitment_var)?;
+        // Witness allocations
+        let mut hidden_vars = Vec::new();
+        for i in 0..16 {
+            if !self.mask[i] {
+                hidden_vars.push(FpVar::new_witness(
+                    cs.clone(),
+                    || self.attributes[i].ok_or(SynthesisError::AssignmentMissing),
+                )?);
+            }
+        }
+
+        let blinding_var = FpVar::new_witness(
+            cs.clone(),
+            || self.blinding.ok_or(SynthesisError::AssignmentMissing),
+        )?;
+
+        let mut hash_inputs: Vec<FpVar<Fr>> = vec![domain_var];
+        let mut hidden_idx = 0;
+        let mut age_var: Option<FpVar<Fr>> = None;
+
+        for i in 0..16 {
+            let attr_var = if self.mask[i] {
+                let v = revealed_vars[i].clone();
+                if i == self.age_index { age_var = Some(v.clone()); }
+                v
+            } else {
+                let v = hidden_vars[hidden_idx].clone();
+                hidden_idx += 1;
+                if i == self.age_index { age_var = Some(v.clone()); }
+                v
+            };
+            hash_inputs.push(attr_var);
+        }
+        hash_inputs.push(blinding_var);
+
+        // Constraint 1: Poseidon identity validation 
+        let computed = poseidon_sponge_hash_circuit(&hash_inputs)?;
+        computed.enforce_equal(&expected_commitment_var)?;
+
+        // Constraint 2: Secure age >= threshold validation
+        if let Some(age) = age_var {
+            let delta = FpVar::new_witness(cs.clone(), || {
+                let a = self.attributes[self.age_index].ok_or(SynthesisError::AssignmentMissing)?;
+                let t = self.age_threshold.ok_or(SynthesisError::AssignmentMissing)?;
+                // Prevent underflow during tracking value assignment
+                Ok(if a >= t { a - t } else { Fr::zero() })
+            })?;
+
+            // age = threshold + delta
+            age.enforce_equal(&(&age_threshold_var + &delta))?;
+
+            // Range check restriction: Enforce that delta fits comfortably in 32 bits
+            // This effectively cuts off field wrapping space, rendering exploits impossible.
+            let delta_bits = delta.to_bits_le()?;
+            for bit in delta_bits.iter().skip(32) {
+                bit.enforce_equal(&Boolean::constant(false))?;
+            }
+        }
 
         Ok(())
     }
 }
 
-// =============================================================================
-// Main
-// =============================================================================
 fn main() {
     println!("╔══════════════════════════════════════════════════════════╗");
-    println!("║  DataIntegrityGroth16Proof2026 — Parts 1-3               ║");
+    println!("║  DataIntegrityGroth16Proof2026 — Secure Fix              ║");
     println!("╚══════════════════════════════════════════════════════════╝\n");
 
-    // ── Parts 1-2: Native Poseidon ────────────────────────────────────────
-    println!("━━━ PARTS 1-2: NATIVE POSEIDON ━━━\n");
-
     let alice   = hash_attribute("Alice");
-    let age     = hash_attribute("25");
+    let chen    = hash_attribute("Chen");
+    
+    // FIX 1: Numeric comparisons require actual raw number injection
+    let age_val = Fr::from(25u64); 
     let over18  = hash_attribute("true");
     let address = hash_attribute("123 Main St");
 
     let mut attrs = [Fr::zero(); 16];
-    attrs[0] = alice; attrs[1] = age; attrs[2] = over18; attrs[3] = address;
+    attrs[0] = alice;
+    attrs[1] = chen;
+    attrs[2] = age_val;
+    attrs[3] = over18;
+    attrs[4] = address;
 
     let blinding   = random_fr();
     let commitment = create_commitment(&attrs, &blinding);
 
-    println!("Native commitment: {}", commitment);
+    println!("━━━ CREDENTIAL ISSUED ━━━\n");
+    println!("Commitment: {}", commitment);
 
-    // ── Part 3: Groth16 Proof ─────────────────────────────────────────────
-    println!("\n━━━ PART 3: GROTH16 ZERO-KNOWLEDGE PROOF ━━━\n");
+    // Mask: Keep age completely hidden from public visibility, prove predicate dynamically
+    let mut mask = [false; 16];
+    mask[3] = true; // only explicitly release the 'over18' metadata token
 
-    // Domain element (same as native)
+    println!("\n━━━ SELECTIVE DISCLOSURE ━━━\n");
+    println!("Revealing: isOver18");
+    println!("Hidden:    givenName, familyName, age, address\n");
+
     let mut sha = Sha256::new();
     sha.update(DOMAIN_SEP);
     sha.update(COMMITMENT_DOMAIN);
     let domain_element = Fr::from_be_bytes_mod_order(&sha.finalize());
 
-    // Circuit with real witness values
-    let circuit = DataIntegrityCircuit {
-        attributes: attrs.iter().map(|&x| Some(x)).collect(),
+    let circuit = SelectiveDisclosureCircuit {
+        attributes: attrs.map(Some),
+        mask,
         blinding: Some(blinding),
         expected_commitment: Some(commitment),
+        age_threshold: Some(Fr::from(18u64)),
+        age_index: 2,
         domain_element,
     };
 
-    // Trusted setup
+    let blank = SelectiveDisclosureCircuit {
+        attributes: [None; 16],
+        mask,
+        blinding: None,
+        expected_commitment: None,
+        age_threshold: None,
+        age_index: 2,
+        domain_element,
+    };
+
     let mut rng = ark_std::rand::thread_rng();
-    println!("Running trusted setup...");
+
+    println!("Trusted setup...");
     let t = Instant::now();
-    let (pk, vk) = Groth16::<Bn254>::circuit_specific_setup(
-        DataIntegrityCircuit {
-            attributes: vec![None; 16],
-            blinding: None,
-            expected_commitment: None,
-            domain_element,
-        },
-        &mut rng,
-    ).expect("Setup failed");
+    let (pk, vk) = Groth16::<Bn254>::circuit_specific_setup(blank, &mut rng)
+        .expect("Setup failed");
     println!("  Setup: {:?}", t.elapsed());
 
-    // Generate proof
     println!("Generating proof...");
     let t = Instant::now();
     let proof = Groth16::<Bn254>::prove(&pk, circuit, &mut rng)
         .expect("Proof generation failed");
     println!("  Prove: {:?}", t.elapsed());
 
-    // Verify proof
+    let mut public_inputs = vec![Fr::zero(); 16];
+    public_inputs[3] = attrs[3]; 
+    public_inputs.push(commitment);
+    public_inputs.push(Fr::from(18u64));
+
     println!("Verifying proof...");
     let t = Instant::now();
-    let public_inputs = vec![commitment];
     let is_valid = Groth16::<Bn254>::verify(&vk, &public_inputs, &proof)
         .expect("Verification error");
     println!("  Verify: {:?}", t.elapsed());
 
     if is_valid {
-        println!("\n✓ ZK Proof VALID — holder knows attributes matching commitment");
+        println!("\n✓ Proof VALID");
+        println!("  Predicate execution successfully authenticated target parameter >= 18 safely.");
     } else {
-        println!("\n✗ ZK Proof INVALID");
+        println!("\n✗ Proof INVALID");
     }
-
-    // ── Verify zero-knowledge property ──
-    println!("\n━━━ ZERO-KNOWLEDGE DEMONSTRATION ━━━\n");
-    println!("  Verifier sees: commitment = {}", commitment);
-    println!("  Verifier learns: NOTHING about the 16 attributes");
-    println!("  Verifier learns: NOTHING about the blinding factor");
-    println!("  Only check: Poseidon(attrs, blinding) == commitment ✓");
 }
