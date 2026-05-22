@@ -624,10 +624,10 @@ impl PoseidonExplainer {
     /// Print a detailed educational walkthrough
     pub fn print_educational_walkthrough(&self) {
         println!("╔══════════════════════════════════════════════════════════════════╗");
-        println!("║           POSEIDON HASH - EDUCATIONAL WALKTHROUGH              ║");
+        println!("║                        POSEIDON HASH                             ║");
         println!("╚══════════════════════════════════════════════════════════════════╝\n");
         
-        println!("📐 MATHEMATICAL FOUNDATION");
+        println!("MATHEMATICAL FOUNDATION");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!("  Field:        BLS12-381 scalar field (Fr)");
         println!("  Field size:   ≈ 2^255");
@@ -637,7 +637,7 @@ impl PoseidonExplainer {
         println!("  Capacity:     c = 1 (security margin)");
         println!();
         
-        println!("🔢 ROUND STRUCTURE");
+        println!("ROUND STRUCTURE");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!("  First half full rounds:  4 rounds (all elements x⁵)");
         println!("  Partial rounds:          56 rounds (only element 0 x⁵)");
@@ -645,7 +645,7 @@ impl PoseidonExplainer {
         println!("  Total:                   64 rounds");
         println!();
         
-        println!("⚡ OPERATIONS BREAKDOWN");
+        println!("OPERATIONS BREAKDOWN");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!("  S-Box operations:    {}", self.statistics.sbox_operations);
         println!("  Matrix mults:        {}", self.statistics.multiplications);
@@ -656,7 +656,7 @@ impl PoseidonExplainer {
             self.statistics.additions);
         println!();
         
-        println!("🔍 ROUND-BY-ROUND TRACE (showing first few)");
+        println!("ROUND-BY-ROUND TRACE (showing first few)");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         
         for (round_idx, round) in self.rounds.rounds.iter().take(3).enumerate() {
@@ -687,10 +687,10 @@ impl PoseidonExplainer {
             println!("\n  ... ({} more rounds) ...", self.rounds.rounds.len() - 3);
         }
         
-        println!("\n✅ FINAL HASH: {}", hex_fr(&self.rounds.final_state[0]));
+        println!("\nFINAL HASH: {}", hex_fr(&self.rounds.final_state[0]));
         println!();
         
-        println!("🔒 SECURITY PROPERTIES");
+        println!("SECURITY PROPERTIES");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!("  Collision resistance:  2^128 operations");
         println!("  Preimage resistance:   2^128 operations");
@@ -743,7 +743,7 @@ mod tests {
         assert!(!hash1.is_zero(), "Hash is zero!");
         println!("✓ Non-zero output: hash is non-zero");
         
-        println!("\n✅ All basic properties verified!\n");
+        println!("\nAll basic properties verified!\n");
     }
     
     /// Test 2: Verify MDS matrix properties
@@ -786,7 +786,7 @@ mod tests {
         }
         println!("✓ All entries are small (1, 2, or 3)");
         
-        println!("\n✅ MDS matrix properties verified!\n");
+        println!("\nMDS matrix properties verified!\n");
     }
     
     /// Test 3: Verify S-Box properties
@@ -821,7 +821,7 @@ mod tests {
         assert_eq!(x, x_recovered, "S-box is not invertible!");
         println!("✓ S-box is invertible");
         
-        println!("\n✅ S-Box properties verified!\n");
+        println!("\nS-Box properties verified!\n");
     }
     
     /// Test 4: Verify round constants
@@ -854,7 +854,7 @@ mod tests {
             "Some rounds have duplicate constants!");
         println!("✓ All rounds have unique constants");
         
-        println!("\n✅ Round constants verified!\n");
+        println!("\nRound constants verified!\n");
     }
     
     /// Test 5: Permutation properties
@@ -884,7 +884,7 @@ mod tests {
         assert_eq!(state1, state3, "Permutation is not deterministic!");
         println!("✓ Determinism: same input → same output");
         
-        println!("\n✅ Permutation properties verified!\n");
+        println!("\nPermutation properties verified!\n");
     }
     
     /// Test 6: Educational walkthrough
@@ -949,7 +949,7 @@ mod tests {
             "Different attribute should give different commitment");
         println!("✓ Different attribute → different commitment");
         
-        println!("\n✅ Commitment scheme verified!\n");
+        println!("\nCommitment scheme verified!\n");
     }
     
     /// Test 8: Blinding derivation
@@ -975,7 +975,7 @@ mod tests {
         assert_ne!(b1, b4, "Different ID should give different blinding");
         println!("✓ Different credential ID → different blinding");
         
-        println!("\n✅ Blinding derivation verified!\n");
+        println!("\nBlinding derivation verified!\n");
     }
     
     /// Test 9: Performance benchmarks
@@ -1031,7 +1031,7 @@ mod tests {
         let duration = start.elapsed();
         println!("Full hash:        {:?} per 100 ops", duration);
         
-        println!("\n✅ Performance benchmarks complete!\n");
+        println!("\n Performance benchmarks complete!\n");
     }
     
     /// Test 10: Comprehensive verification (proves correctness)
@@ -1081,7 +1081,7 @@ mod tests {
             "Explainer produces different hash!");
         println!("✓ Educational explainer matches production hash");
         
-        println!("\n✅✅✅ ALL VERIFICATIONS PASSED - POSEIDON IS CORRECT! ✅✅✅\n");
+        println!("\n ALL VERIFICATIONS PASSED - POSEIDON IS CORRECT! \n");
     }
 }
 
@@ -1127,5 +1127,5 @@ fn main() {
     println!("Determinism:  ✓ (verified)");
     println!();
     
-    println!("✅ Poseidon hash function is ready for production use!");
+    println!(" Poseidon hash function is ready for production use!");
 }
