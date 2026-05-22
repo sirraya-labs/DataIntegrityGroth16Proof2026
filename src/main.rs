@@ -167,7 +167,7 @@ fn random_fr() -> Fr {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Deterministic Blinding Derivation (CRITICAL FIX)
+// Deterministic Blinding Derivation 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 fn generate_master_secret() -> [u8; 32] {
