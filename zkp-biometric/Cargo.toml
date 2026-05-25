@@ -1,0 +1,25 @@
+[package]
+name = "zkp-biometric"
+version = "0.1.0"
+edition = "2021"
+description = "W3C Data Integrity Cryptosuite: poseidon-groth16-bn254-2026"
+
+[dependencies]
+ark-bn254 = "=0.4.0"
+ark-ff = { version = "=0.4.2", features = ["parallel"] }
+ark-groth16 = "=0.4.0"
+ark-relations = "=0.4.0"
+ark-r1cs-std = "=0.4.0"
+ark-snark = "=0.4.0"
+ark-serialize = { version = "=0.4.2", features = ["derive"] }
+ark-std = "=0.4.0"
+ark-ec = "=0.4.2"
+ark-poly = "=0.4.2"
+sha2 = "0.10.8"
+rand = "0.8.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64-url = "2.0"
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1.0"
+clap = { version = "4.0", features = ["derive"] }

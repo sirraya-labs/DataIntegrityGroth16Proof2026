@@ -3,14 +3,19 @@
     "https://www.w3.org/ns/credentials/v2",
     "https://w3id.org/security/data-integrity/v2"
   ],
-  "id": "urn:uuid:6a1676b8-b51f-11ed-937b-d76685a20ff5",
-  "type": ["VerifiableCredential", "AgeCredential"],
+  "id": "urn:uuid:alice-w3c-001",
+  "type": [
+    "VerifiableCredential",
+    "AgeCredential"
+  ],
   "issuer": "did:example:government",
   "issuanceDate": "2026-05-21T00:00:00Z",
   "credentialSubject": {
     "id": "did:example:alice",
-    "commitment": "5091635468635902509852762846225411544903821342617465505198228892146684570803",
-    "revealedAttributes": ["isOver18"]
+    "commitment": "10163733210329197168877898902448588623599540922162960498687024038001844885152",
+    "revealedAttributes": [
+      "true"
+    ]
   },
   "proof": {
     "type": "DataIntegrityProof",
@@ -18,7 +23,7 @@
     "created": "2026-05-21T00:00:00Z",
     "verificationMethod": "did:example:government#poseidon-groth16-key-1",
     "proofPurpose": "assertionMethod",
-    "proofValue": "SleVLoUEUyd6mq3-of2JpesBd7eF1QP2TjsYKf1jpCUQAw-hneSYgO-D2wGTDi6bweSvE-b5Lz-PxdFKFctJIdXUnAOHNhciAdDuWfnxpR-uKHVN4Z2lr7N_c_jOc0INQ10F4yCc6abJzMv-X323ilRo4y8tnGO-8zzUpcgSbgI",
+    "proofValue": "RmqfmotIHhdrH3x9roI9P76xJN1nVSfqsVAQEvM6aww4W3FEtt_BXQDh5iIJpflAY0LAvKgToHrYU5epTlycBCB5YP_r272QuyrdQjV1tTixsgJD-BQxtxhRTtCqYrIH11D0jgGIKWzdsyDToZCbAikEHZDzPMMstEtw8a4aPSM",
     "domain": "https://verifier.example"
   }
 }
